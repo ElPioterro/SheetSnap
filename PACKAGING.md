@@ -52,47 +52,72 @@ cp -r .next/standalone dist-resources/server
 
 ### 3. Native dependencies & bundled tools
 
-- **sharp** — run `npx @electron/rebuild` after install so libvips matches
-  Electron's ABI.
+- **sharp** — **no rebuild needed.** sharp ≥ 0.33 ships its native binary as a
+  per-platform **N-API** prebuild (`@img/sharp-<platform>`). N-API is
+  ABI-stable across Node *and* Electron, so the same binary that `npm install`
+  fetches runs unchanged under the packaged Electron process. (Older guides
+  tell you to run `@electron/rebuild` for sharp; that is obsolete here and is
+  deliberately *not* wired in.)
 - **ffmpeg-static** — automatically downloads the correct per-platform ffmpeg
-  when you `npm install` on each target OS (or in per-OS CI jobs). It is a
-  normal dependency, so it rides along inside the server bundle.
+  when you `npm install` **on each target OS** (or in per-OS CI jobs). It is a
+  normal dependency, so it rides along inside the server bundle. Note: a
+  Windows `npm install` only fetches `ffmpeg.exe`; you cannot produce a working
+  macOS app from a Windows checkout (see "Building for both platforms" below).
 - **yt-dlp** — download the official binary per platform into
   `resources/bin/yt-dlp[.exe]`, add it via builder `extraResources`, and set
   `YTDLP_PATH` to that location in `main.cjs` (already wired). If yt-dlp is
-  absent, only the YouTube tab degrades — uploads still work.
+  absent, only the YouTube tab degrades — uploads still work. See
+  `resources/bin/README.md`.
 
-### 4. Install dependencies and build installers
+### 4. Build installers
+
+The Electron toolchain and builder config are already wired into
+`package.json`. Install once, then build:
 
 ```bash
-npm i -D electron electron-builder @electron/rebuild
-npx @electron/rebuild
-npx electron-builder --win --mac --linux   # one per-OS CI job each
+npm install                 # electron + electron-builder come with it
+npm run dist:win            # → dist/SheetSnap Setup <version>.exe
+# or, on the respective OS:
+#   npm run dist             # current OS's default target
+#   npx electron-builder --mac      (must run on macOS)
+#   npx electron-builder --linux
 ```
 
-Builder configuration (add to `package.json`):
+`npm run dist:win` runs three steps in order (see `scripts`):
 
-```json
-{
-  "main": "electron/main.cjs",
-  "build": {
-    "appId": "app.sheetsnap.desktop",
-    "productName": "SheetSnap",
-    "files": ["electron/**"],
-    "extraResources": [
-      { "from": "dist-resources/server", "to": "server" },
-      { "from": "resources/bin", "to": "bin" }
-    ],
-    "win": { "target": ["nsis"] },
-    "mac": { "target": ["dmg"], "category": "public.app-category.utilities" },
-    "linux": { "target": ["AppImage", "deb"] }
-  }
-}
-```
+1. `next build` + `postbuild` → finalizes `.next/standalone`.
+2. `scripts/assemble-resources.mjs` → stages it into `dist-resources/server`
+   (dereferencing symlinks, and asserting ffmpeg + sharp actually made it into
+   the bundle — a guard against silent trace-pruning failures).
+3. `electron-builder --win` → wraps it into an NSIS installer.
 
-Result: `SheetSnap Setup x.y.z.exe`, `SheetSnap-x.y.z.dmg`,
-`SheetSnap-x.y.z.AppImage` — the double-click experience, with job history
-persisted in the user's own data folder across launches and upgrades.
+Result: `dist\SheetSnap Setup x.y.z.exe` (and `SheetSnap-x.y.z.dmg` /
+`SheetSnap-x.y.z.AppImage` from the mac/linux jobs) — the double-click
+experience, with job history persisted in the user's own data folder across
+launches and upgrades.
+
+### Building for both platforms
+
+There is no cross-compilation here: **build each OS's installer on that OS.**
+
+- `ffmpeg-static` only downloads the current platform's ffmpeg at install time.
+- `electron-builder` cannot produce a macOS `.dmg` from Windows (and vice
+  versa) — the code-signing/packaging tools are OS-native.
+
+The clean path to shipping Windows **and** macOS from one push is CI with a
+build matrix (e.g. GitHub Actions running `windows-latest` + `macos-latest`
+jobs, each doing `npm ci && npm run dist:<os>` and uploading the artifact).
+
+### Windows gotcha: winCodeSign symlink extraction
+
+On its first run, electron-builder downloads a `winCodeSign` bundle that
+contains macOS `.dylib` **symlinks**. Creating symlinks on Windows requires
+**Developer Mode** (Settings → Privacy & security → For developers) or an
+elevated shell; without it, extraction fails with
+`Cannot create symbolic link … the client does not have the required
+privileges`, and the build stops after `dist/win-unpacked` with no installer.
+Enabling Developer Mode once fixes it permanently. (Those dylibs are macOS-only
+and unused by the Windows build.)
 
 ## Alternative: Tauri 2
 

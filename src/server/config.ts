@@ -13,13 +13,10 @@ import path from "node:path";
  *     ~/.config/SheetSnap) — never inside the install directory.
  *   - Local development: ./data at the project root (gitignored), so
  *     `npm install && npm run dev` needs nothing else.
- *   - SHEETSNAP_DATA_DIR is accepted as a legacy fallback so existing
- *     installations keep working after the rename.
  */
 
 function resolveDataDir(): string {
-  const fromEnv =
-    process.env.SHEETSNAP_DATA_DIR ?? process.env.SHEETSNAP_DATA_DIR;
+  const fromEnv = process.env.SHEETSNAP_DATA_DIR;
   if (fromEnv) return path.resolve(fromEnv);
   return path.join(/*turbopackIgnore: true*/ process.cwd(), "data");
 }

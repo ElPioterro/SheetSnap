@@ -1,13 +1,20 @@
 {
-  "name": "nextjs-postgresql-template",
+  "name": "sheetsnap",
+  "version": "1.0.0",
   "private": true,
+  "description": "Turn music videos into printable sheet music — line by line.",
+  "main": "electron/main.cjs",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "node .next/standalone/server.js",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "postbuild": "node scripts/finalize-standalone.mjs"
+    "postbuild": "node scripts/finalize-standalone.mjs",
+    "electron:dev": "electron .",
+    "assemble": "node scripts/assemble-resources.mjs",
+    "dist": "npm run build && npm run assemble && electron-builder",
+    "dist:win": "npm run build && npm run assemble && electron-builder --win"
   },
   "dependencies": {
     "@fontsource-variable/inter": "^5.3.0",
@@ -27,10 +34,53 @@
     "@types/node": "22.19.15",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
+    "electron": "^33.2.1",
+    "electron-builder": "^25.1.8",
     "eslint": "9.39.4",
     "eslint-config-next": "16.2.6",
     "postcss": "8.5.8",
     "tailwindcss": "4.1.17",
     "typescript": "5.9.3"
+  },
+  "build": {
+    "appId": "app.sheetsnap.desktop",
+    "productName": "SheetSnap",
+    "files": [
+      "electron/**"
+    ],
+    "extraResources": [
+      {
+        "from": "dist-resources/server",
+        "to": "server"
+      },
+      {
+        "from": "resources/bin",
+        "to": "bin",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ]
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "category": "public.app-category.utilities"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
   }
 }

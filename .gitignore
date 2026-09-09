@@ -4,3 +4,9 @@ data/
 .env
 *.webm
 *.mp4
+
+# Desktop packaging output
+dist-resources/
+dist/
+resources/bin/yt-dlp
+resources/bin/yt-dlp.exe

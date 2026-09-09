@@ -150,6 +150,20 @@ See `.env.example`. Defaults work out of the box.
 
 ## Packaging into a desktop app
 
-See **`PACKAGING.md`** — Electron builder configs plus the trade-offs vs.
-Tauri, and how ffmpeg/yt-dlp are bundled and data is redirected to the OS
-user-data folder so users just double-click.
+The Electron shell and `electron-builder` config are wired into
+`package.json`. To build a double-click installer for the OS you are on:
+
+```bash
+npm install
+npm run dist:win     # Windows → dist/SheetSnap Setup <version>.exe
+# npm run dist       # current OS's default target (mac/linux run on that OS)
+```
+
+Build each platform's installer **on that platform** (or in per-OS CI):
+`ffmpeg-static` only fetches the current OS's ffmpeg, and electron-builder
+can't cross-build a macOS `.dmg` from Windows.
+
+See **`PACKAGING.md`** for the full pipeline — the N-API sharp note (no native
+rebuild needed), a GitHub Actions matrix for shipping Windows + macOS from one
+push, the Windows Developer-Mode requirement, how ffmpeg/yt-dlp are bundled,
+and the trade-offs vs. Tauri.
